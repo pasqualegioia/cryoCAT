@@ -123,11 +123,13 @@ def is_float(value):
     >>> is_float("hello")
     False
     """
+    if isinstance(value, bool): #float(True) == 1.0, but we don't accept bool as valid
+        return False
 
     try:
         float(value)
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False
 
 
@@ -142,8 +144,13 @@ def get_filename_from_path(input_path, with_extension=True):
         Flag to indicate whether to include the file extension in the filename. Default is True.
 
     Returns:
-        str
-            The extracted filename from the input path.
+    str
+        The extracted filename from the input path.
+
+    Raises
+    ------
+    NoArgument
+        If input_path is None.
     """
 
     # Get the filename without the path
@@ -249,12 +256,15 @@ def get_data_from_warp_xml(xml_file_path, node_name, node_level=1):
     ------
     Exception
         If there is an error reading the XML file.
+    Value Error
+        If node_level isn't 1 or 2
 
     Examples
     --------
     >>> data = get_data_from_warp_xml('path/to/xml/file.xml', 'GridCTF', node_level=2)
     """
-
+    if node_level not in [1, 2]:
+        raise ValueError(f"node_level can't be {node_level}, must be 1 or 2.")
     try:
         # Parse the XML file
         tree = ET.parse(xml_file_path)
@@ -269,14 +279,17 @@ def get_data_from_warp_xml(xml_file_path, node_name, node_level=1):
             if node_level == 2:  # elements[0].tag == 'GridCTF':
                 # Directly find all Node elements within GridCTF
                 node_elements = elements[0].findall(".//Node")
-
                 # Extract values from each Node element
                 data = [float(node.get("Value")) for node in node_elements]
-            else:
+
+                #Does not handle <Param>
+            elif node_level == 1:
                 # Default behavior: extract text content from the elements
                 data_text = elements[0].text.strip()
                 data = [float(value) for value in data_text.split("\n") if value.strip()]
 
+                #Does not handle booleans, strings(paths)
+                #Level2 nodes would not lead to something significant
             data = np.asarray(data)
             return data
         else:
