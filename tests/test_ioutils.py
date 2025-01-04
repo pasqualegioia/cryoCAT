@@ -1,11 +1,12 @@
 import numpy as np
+import pandas as pd
 
 from cryocat.ioutils import *
 import tempfile
 import pytest
 import os
 import re
-import xml.etree.ElementTree as ET
+from io import StringIO
 from pathlib import Path
 
 # function to create a temporary file with a specific encoding
@@ -1421,4 +1422,477 @@ def test_warp_ctf_read():
     test_df["phase_shift"] = gridctf_phase
 
     pd.testing.assert_frame_equal(test_df, warp_ctf_read(xml_file_path))
+
+#something not clear: with star file we have defocus1 and defocus2 and defmean calculated by these ,
+#with warp xml we have just the mean?
+
+#Astigmatism is not converted to micrometers?
+
+#no check of micrometers for any column?
+def test_gtcf_read():
+    current_dir = Path(__file__).parent
+    #018_absent_phaseShift18
+    defocusU_test18 = [35268.359375, 34332.652344, 33858.722656, 35649.660156, 35397.246094, 34354.187500, 35621.707031, 34577.019531, 34172.589844, 35716.156250, 34074.867188, 33485.125000, 33248.859375, 33834.765625, 34547.640625, 34658.406250, 34407.492188, 34153.625000, 33948.054688, 34577.507812, 33752.703125, 34121.878906, 33979.281250, 34352.917969, 33891.410156, 34112.527344, 33924.605469, 33581.265625, 33641.425781, 33717.992188, 33825.421875, 33744.929688, 34003.250000, 33772.292969, 33350.425781, 33389.335938, 33201.953125, 33414.808594, 33217.554688, 33301.515625, 33487.601562, 32610.074219, 32928.492188, 33161.558594, 32418.701172, 32699.968750, 34008.625000, 32632.125000, 32065.232422, 33369.921875, 32399.195312, 31207.765625, 32922.281250, 32578.910156, 32438.275391, 32354.269531, 33756.363281, 33170.699219, 37010.957031, 32093.152344
+]
+    defocusV_test18 = [35036.406250, 35647.824219, 33047.644531, 35557.472656, 35075.472656, 34716.179688, 36280.660156, 35192.824219, 35397.730469, 35151.062500, 34475.976562, 34870.453125, 36184.812500, 34223.851562, 34803.976562, 34864.046875, 34018.304688, 34377.671875, 34938.710938, 33981.203125, 34219.953125, 34331.261719, 34223.937500, 33963.550781, 34128.144531, 33965.644531, 34102.753906, 33985.140625, 33995.378906, 34121.898438, 33678.492188, 33899.648438, 33789.945312, 34020.761719, 33809.808594, 33860.757812, 33309.765625, 33522.691406, 33591.093750, 33596.937500, 32750.677734, 33761.066406, 33548.140625, 32592.550781, 33085.218750, 33276.828125, 32096.939453, 32348.343750, 32434.767578, 32137.892578, 33612.585938, 32769.007812, 31738.017578, 31882.125000, 31464.076172, 33423.136719, 32141.511719, 32602.736328, 36586.699219, 33375.855469
+]
+    defocusAngle18 = [21.260185, 10.495987, 82.230835, 83.206253, 55.838074, 51.147915, 49.745102, 62.932869, 63.413452, 75.131836, 67.024940, 31.398960, 51.957737, 42.132729, 0.877556, 75.411850, 19.592590, 61.788765, 17.310394, 2.286995, 67.911240, 73.547852, 10.120667, 81.420303, 47.649994, 70.209831, 76.795242, 83.089111, 64.373100, 71.908905, 64.891617, 88.230179, 17.646332, 64.991364, 40.967464, 62.539276, 47.918793, 24.099361, 7.947800, 34.639038, 59.527859, 21.130569, 78.265640, 9.343567, 26.686031, 53.716324, 59.336975, 84.182068, 11.137737, 8.331212, 55.481678, 59.722404, 43.838737, 37.230209, 24.560413, 44.282932, 60.271088, 46.200169, 39.174423, 75.284645
+]
+    phase_shift18 =   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]
+    defocusU_test18 = np.asarray(defocusU_test18, dtype=float)
+    defocusV_test18 = np.asarray(defocusV_test18, dtype=float)
+    defocusAngle18 = np.asarray(defocusAngle18, dtype=float)
+    defocusU_test18 = defocusU_test18 * 10e-5
+    defocusV_test18 = defocusV_test18 * 10e-5
+    #defocusAngle_18 = defocusAngle_18 * 10e-5 ASTIGMATISM IS NOT IN MICROMETERS!?
+    phase_shift18 = np.asarray(phase_shift18, dtype=float)
+    defocus_mean= (defocusU_test18 + defocusV_test18)/2
+
+
+    df_test = pd.DataFrame(
+        {
+            'defocus1': defocusU_test18,
+            'defocus2': defocusV_test18,
+            'astigmatism': defocusAngle18,
+            'phase_shift': phase_shift18,
+            'defocus_mean': defocus_mean
+
+        }
+    )
+    pd.testing.assert_frame_equal(df_test, gctf_read(str(current_dir / "test_data" / "TS_018" / "018_gctf.star")))
+
+def test_cttfind4_read():
+    current_dir = Path(__file__).parent
+
+    defocus1_test18 = [14477.870117, 18332.730469, 19371.796875, 18046.099609, 18457.386719, 17372.529297, 18232.728516, 18506.312500, 18353.582031, 19893.322266, 18975.546875, 18963.015625, 18881.785156, 19096.888672, 19281.589844, 18903.167969, 19031.861328, 19032.248047, 18853.355469, 18952.986328, 18920.476562, 19107.906250, 19206.066406, 19276.335938, 19355.328125, 19192.632812, 19025.808594, 19359.962891, 19148.015625, 19321.939453, 19337.650391, 18820.208984, 18972.789062, 19654.128906, 19007.716797, 18973.917969, 19478.619141, 19328.347656, 19642.240234, 19599.916016, 19806.958984, 18332.730469, 19371.796875, 18046.099609, 18457.386719, 17372.529297, 18232.728516, 18506.312500, 18353.582031, 19893.322266, 18975.546875, 18963.015625, 18881.785156, 19096.888672, 19281.589844, 18903.167969, 19031.861328, 19032.248047, 18853.355469, 18853.355469]
+    defocus2_test18 = [13500.001953, 17896.296875, 18665.488281, 17408.392578, 17909.847656, 17371.917969, 17712.291016, 18223.146484, 17973.222656, 19385.732422, 18861.855469, 18590.837891, 18429.767578, 18741.103516, 18953.857422, 18632.029297, 18947.216797, 18861.468750, 18658.119141, 18654.927734, 18812.078125, 18737.226562, 19152.679688, 18986.986328, 19108.808594, 19052.113281, 18965.224609, 18877.849609, 18812.537109, 18919.740234, 18981.781250, 18593.011719, 18727.517578, 19254.160156, 18051.062500, 18802.392578, 19049.289062, 18845.232422, 19373.451172, 19060.380859, 19740.335938, 17896.296875, 18665.488281, 17408.392578, 17909.847656, 17371.917969, 17712.291016, 18223.146484, 17973.222656, 19385.732422, 18861.855469, 18590.837891, 18429.767578, 18741.103516, 18953.857422, 18632.029297, 18947.216797, 18861.468750, 18658.119141, 22658.119141]
+    defocusAngle_test18 = [75.000012, -84.116628, 39.985953, -87.499983, 12.500009, -48.154572, -28.166397, -11.545737, 59.680465, 21.019584, -41.021307, -39.846347, 51.624298, 51.607670, 22.806290, -66.451669, -71.873917, -80.792067, 32.230116, 78.747006, 79.855710, 81.304823, 12.261773, 74.979433, -89.945750, 28.671587, -49.862850, 65.000008, -44.448914, 85.094567, -89.727498, 44.394792, -15.041164, -77.267396, -51.400244, 82.015853, -11.604279, -71.148598, -85.041511, 27.514029, -70.902534, -84.116628, 39.985953, -87.499983, 12.500009, -48.154572, -28.166397, -11.545737, 59.680465, 21.019584, -41.021307, -39.846347, 51.624298, 51.607670, 22.806290, -66.451669, -71.873917, -80.792067, 32.230116, 32.230116]
+    phase_shift_test18 = [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000]
+
+    defocus1_test18 = np.asarray(defocus1_test18, dtype=np.float32)
+    defocus2_test18 = np.asarray(defocus2_test18, dtype=np.float32)
+    defocusAngle_test18 = np.asarray(defocusAngle_test18, dtype=np.float32)
+    phase_shift_test18 = np.asarray(phase_shift_test18, dtype=np.float32)
+    defocus1_test18 *= 10e-5 #micrometers
+    defocus2_test18 *= 10e-5 #micrometers
+    defocus_mean_test18 = (defocus1_test18 + defocus2_test18) /2
+
+    df_test18 = pd.DataFrame(
+        {
+            'defocus1': defocus1_test18,
+            'defocus2': defocus2_test18,
+            'astigmatism': defocusAngle_test18,
+            'phase_shift': phase_shift_test18,
+            'defocus_mean': defocus_mean_test18
+        }
+    )
+    pd.testing.assert_frame_equal(df_test18, ctffind4_read(str(current_dir / "test_data" / "TS_018" / "018_ctffind4.txt")))
+
+#Why to assume pandas df is correct? Containing correct amount of columns? Contain the correct amount of data per each column?
+#Test if defocus values are in micrometers, phase shift in radians?
+
+#Something not clear: why do we get different defocus values from each different file format? xml, star, ctffind4
+def test_defocus_load():
+    #File1
+    current_dir = Path(__file__).parent
+
+    gridctf = [
+        3.409815, 3.398723, 3.389318, 3.392323, 3.424242, 3.371011, 3.403402, 3.406947, 3.42302, 3.378743,
+        3.392365, 3.390212, 3.419454, 3.38763, 3.404047, 3.388702, 3.404345, 3.378603, 3.388518, 3.382968,
+        3.370579, 3.384403, 3.392067, 3.387562, 3.397726, 3.391282, 3.387162, 3.37812, 3.374513, 3.382992,
+        3.383263, 3.376348, 3.385212, 3.385358, 3.367899, 3.360602, 3.350081, 3.362278, 3.352579, 3.345044,
+        3.331407, 3.356446, 3.34499, 3.327942, 3.324675, 3.344646, 3.350497, 3.312646, 3.308363, 3.295593,
+        3.296385, 3.273645, 3.300465, 3.2972, 3.288325, 3.248272, 3.270276, 3.309069, 3.392386, 3.353555]
+    gridctf = np.asarray(gridctf, dtype=float)
+
+    gridctf_da = [
+        164, 164, 164, 164, 164, 164, 164, 164, 164, 164,
+        164, 164, 164, 164, 164, 164, 164, 164, 164, 164,
+        164, 164, 164, 164, 164, 164, 164, 164, 164, 164,
+        164, 164, 164, 164, 164, 164, 164, 164, 164, 164,
+        164, 164, 164, 164, 164, 164, 164, 164, 164, 164,
+        164, 164, 164, 164, 164, 164, 164, 164, 164, 164]
+    gridctf_da = np.asarray(gridctf_da, dtype=float)
+
+    gridctf_phase = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    gridctf_phase = np.asarray(gridctf_phase, dtype=float)
+
+    test_columns = ["defocus1", "defocus2", "astigmatism", "phase_shift", "defocus_mean"]
+    test_df_xml = pd.DataFrame(columns=test_columns)
+    test_df_xml["defocus_mean"] = test_df_xml["defocus1"] = test_df_xml["defocus2"] = gridctf
+    test_df_xml["astigmatism"] = gridctf_da
+    test_df_xml["phase_shift"] = gridctf_phase
+
+
+    #Test defocus_load from warp xml file
+    pd.testing.assert_frame_equal(test_df_xml, defocus_load(str(current_dir / "test_data" / "TS_018" / "018.xml"), "warp"))
+
+
+    defocusU_test18 = [35268.359375, 34332.652344, 33858.722656, 35649.660156, 35397.246094, 34354.187500, 35621.707031,
+                       34577.019531, 34172.589844, 35716.156250, 34074.867188, 33485.125000, 33248.859375, 33834.765625,
+                       34547.640625, 34658.406250, 34407.492188, 34153.625000, 33948.054688, 34577.507812, 33752.703125,
+                       34121.878906, 33979.281250, 34352.917969, 33891.410156, 34112.527344, 33924.605469, 33581.265625,
+                       33641.425781, 33717.992188, 33825.421875, 33744.929688, 34003.250000, 33772.292969, 33350.425781,
+                       33389.335938, 33201.953125, 33414.808594, 33217.554688, 33301.515625, 33487.601562, 32610.074219,
+                       32928.492188, 33161.558594, 32418.701172, 32699.968750, 34008.625000, 32632.125000, 32065.232422,
+                       33369.921875, 32399.195312, 31207.765625, 32922.281250, 32578.910156, 32438.275391, 32354.269531,
+                       33756.363281, 33170.699219, 37010.957031, 32093.152344
+                       ]
+    defocusV_test18 = [35036.406250, 35647.824219, 33047.644531, 35557.472656, 35075.472656, 34716.179688, 36280.660156,
+                       35192.824219, 35397.730469, 35151.062500, 34475.976562, 34870.453125, 36184.812500, 34223.851562,
+                       34803.976562, 34864.046875, 34018.304688, 34377.671875, 34938.710938, 33981.203125, 34219.953125,
+                       34331.261719, 34223.937500, 33963.550781, 34128.144531, 33965.644531, 34102.753906, 33985.140625,
+                       33995.378906, 34121.898438, 33678.492188, 33899.648438, 33789.945312, 34020.761719, 33809.808594,
+                       33860.757812, 33309.765625, 33522.691406, 33591.093750, 33596.937500, 32750.677734, 33761.066406,
+                       33548.140625, 32592.550781, 33085.218750, 33276.828125, 32096.939453, 32348.343750, 32434.767578,
+                       32137.892578, 33612.585938, 32769.007812, 31738.017578, 31882.125000, 31464.076172, 33423.136719,
+                       32141.511719, 32602.736328, 36586.699219, 33375.855469
+                       ]
+    defocusAngle18 = [21.260185, 10.495987, 82.230835, 83.206253, 55.838074, 51.147915, 49.745102, 62.932869, 63.413452,
+                      75.131836, 67.024940, 31.398960, 51.957737, 42.132729, 0.877556, 75.411850, 19.592590, 61.788765,
+                      17.310394, 2.286995, 67.911240, 73.547852, 10.120667, 81.420303, 47.649994, 70.209831, 76.795242,
+                      83.089111, 64.373100, 71.908905, 64.891617, 88.230179, 17.646332, 64.991364, 40.967464, 62.539276,
+                      47.918793, 24.099361, 7.947800, 34.639038, 59.527859, 21.130569, 78.265640, 9.343567, 26.686031,
+                      53.716324, 59.336975, 84.182068, 11.137737, 8.331212, 55.481678, 59.722404, 43.838737, 37.230209,
+                      24.560413, 44.282932, 60.271088, 46.200169, 39.174423, 75.284645
+                      ]
+    phase_shift18 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                     ]
+    defocusU_test18 = np.asarray(defocusU_test18, dtype=float)
+    defocusV_test18 = np.asarray(defocusV_test18, dtype=float)
+    defocusAngle18 = np.asarray(defocusAngle18, dtype=float)
+    defocusU_test18 = defocusU_test18 * 10e-5
+    defocusV_test18 = defocusV_test18 * 10e-5
+    # defocusAngle_18 = defocusAngle_18 * 10e-5 ASTIGMATISM IS NOT IN MICROMETERS!?
+    phase_shift18 = np.asarray(phase_shift18, dtype=float)
+    defocus_mean = (defocusU_test18 + defocusV_test18) / 2
+
+    df_test_star = pd.DataFrame(
+        {
+            'defocus1': defocusU_test18,
+            'defocus2': defocusV_test18,
+            'astigmatism': defocusAngle18,
+            'phase_shift': phase_shift18,
+            'defocus_mean': defocus_mean
+
+        }
+    )
+    # Test defocus_load from gctf_star file
+    pd.testing.assert_frame_equal(df_test_star, defocus_load(str(current_dir / "test_data" / "TS_018" / "018_gctf.star"), "gctf"))
+
+    defocus1_test18 = [14477.870117, 18332.730469, 19371.796875, 18046.099609, 18457.386719, 17372.529297, 18232.728516,
+                       18506.312500, 18353.582031, 19893.322266, 18975.546875, 18963.015625, 18881.785156, 19096.888672,
+                       19281.589844, 18903.167969, 19031.861328, 19032.248047, 18853.355469, 18952.986328, 18920.476562,
+                       19107.906250, 19206.066406, 19276.335938, 19355.328125, 19192.632812, 19025.808594, 19359.962891,
+                       19148.015625, 19321.939453, 19337.650391, 18820.208984, 18972.789062, 19654.128906, 19007.716797,
+                       18973.917969, 19478.619141, 19328.347656, 19642.240234, 19599.916016, 19806.958984, 18332.730469,
+                       19371.796875, 18046.099609, 18457.386719, 17372.529297, 18232.728516, 18506.312500, 18353.582031,
+                       19893.322266, 18975.546875, 18963.015625, 18881.785156, 19096.888672, 19281.589844, 18903.167969,
+                       19031.861328, 19032.248047, 18853.355469, 18853.355469]
+    defocus2_test18 = [13500.001953, 17896.296875, 18665.488281, 17408.392578, 17909.847656, 17371.917969, 17712.291016,
+                       18223.146484, 17973.222656, 19385.732422, 18861.855469, 18590.837891, 18429.767578, 18741.103516,
+                       18953.857422, 18632.029297, 18947.216797, 18861.468750, 18658.119141, 18654.927734, 18812.078125,
+                       18737.226562, 19152.679688, 18986.986328, 19108.808594, 19052.113281, 18965.224609, 18877.849609,
+                       18812.537109, 18919.740234, 18981.781250, 18593.011719, 18727.517578, 19254.160156, 18051.062500,
+                       18802.392578, 19049.289062, 18845.232422, 19373.451172, 19060.380859, 19740.335938, 17896.296875,
+                       18665.488281, 17408.392578, 17909.847656, 17371.917969, 17712.291016, 18223.146484, 17973.222656,
+                       19385.732422, 18861.855469, 18590.837891, 18429.767578, 18741.103516, 18953.857422, 18632.029297,
+                       18947.216797, 18861.468750, 18658.119141, 22658.119141]
+    defocusAngle_test18 = [75.000012, -84.116628, 39.985953, -87.499983, 12.500009, -48.154572, -28.166397, -11.545737,
+                           59.680465, 21.019584, -41.021307, -39.846347, 51.624298, 51.607670, 22.806290, -66.451669,
+                           -71.873917, -80.792067, 32.230116, 78.747006, 79.855710, 81.304823, 12.261773, 74.979433,
+                           -89.945750, 28.671587, -49.862850, 65.000008, -44.448914, 85.094567, -89.727498, 44.394792,
+                           -15.041164, -77.267396, -51.400244, 82.015853, -11.604279, -71.148598, -85.041511, 27.514029,
+                           -70.902534, -84.116628, 39.985953, -87.499983, 12.500009, -48.154572, -28.166397, -11.545737,
+                           59.680465, 21.019584, -41.021307, -39.846347, 51.624298, 51.607670, 22.806290, -66.451669,
+                           -71.873917, -80.792067, 32.230116, 32.230116]
+    phase_shift_test18 = [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+                          0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+                          0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+                          0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+                          0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+                          0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
+                          0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000]
+
+    defocus1_test18 = np.asarray(defocus1_test18, dtype=np.float32)
+    defocus2_test18 = np.asarray(defocus2_test18, dtype=np.float32)
+    defocusAngle_test18 = np.asarray(defocusAngle_test18, dtype=np.float32)
+    phase_shift_test18 = np.asarray(phase_shift_test18, dtype=np.float32)
+    defocus1_test18 *= 10e-5  # micrometers
+    defocus2_test18 *= 10e-5  # micrometers
+    defocus_mean_test18 = (defocus1_test18 + defocus2_test18) / 2
+
+    df_test18_ctffind4 = pd.DataFrame(
+        {
+            'defocus1': defocus1_test18,
+            'defocus2': defocus2_test18,
+            'astigmatism': defocusAngle_test18,
+            'phase_shift': phase_shift_test18,
+            'defocus_mean': defocus_mean_test18
+        }
+    )
+    #Test defocus_load from ctffind file
+    pd.testing.assert_frame_equal(df_test18_ctffind4,
+                                  defocus_load(str(current_dir / "test_data" / "TS_018" / "018_ctffind4.txt"), "ctffind4"))
+
+    #Test defocus_load passing a pd dataframe with any extension file
+    pd.testing.assert_frame_equal(df_test18_ctffind4,
+                                  defocus_load(df_test18_ctffind4, "ctffind4"))
+    pd.testing.assert_frame_equal(df_test18_ctffind4,
+                                  defocus_load(df_test18_ctffind4, "warp"))
+    pd.testing.assert_frame_equal(df_test18_ctffind4,
+                                  defocus_load(df_test18_ctffind4, "gctf"))
+    #random extension, shouldn't affect it, meaningless
+    pd.testing.assert_frame_equal(df_test18_ctffind4,
+                                  defocus_load(df_test18_ctffind4, "random"))
+
+    #Passing numpy array
+    # Create a 2D numpy array with shape (N, 5), filled with random values
+    numpy_array = np.random.random((10, 5)) * 100
+    # Create a DataFrame with column names for clarity
+    df_numpy = pd.DataFrame(numpy_array, columns=["defocus1", "defocus2", "astigmatism", "phase_shift", "defocus_mean"])
+    pd.testing.assert_frame_equal(df_numpy,
+                                  defocus_load(numpy_array, "random"))
+
+    #Test if exception is being raised correctly
+    file_type_test = "random"
+    with pytest.raises(ValueError, match=f"The file type {file_type_test} is not supported."):
+        output_exception = defocus_load("string", "file_type_test")
+
+#Doubt regarding implicit data type casting
+def test_one_value_per_line_read():
+    data = "1.0\n2.0\n3.0\n"
+    file = StringIO(data)
+    result = one_value_per_line_read(file, data_type=np.float32)
+    expected = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+    np.testing.assert_array_equal(result, expected)
+
+    data = "1\n2\n3\n"
+    file = StringIO(data)
+    result = one_value_per_line_read(file, data_type=np.int32)
+    expected = np.array([1, 2, 3], dtype=np.int32)
+    np.testing.assert_array_equal(result, expected)
+
+    # Test with empty data, expecting a ValueError
+    data = ""
+    file = StringIO(data)
+    with pytest.raises(ValueError, match="The input file is empty or contains no valid data."):
+        one_value_per_line_read(file)
+
+    data = "1.0\nnot_a_number\n3.0\n"
+    file = StringIO(data)
+    with pytest.raises(ValueError):
+        one_value_per_line_read(file, data_type=np.float32)
+
+    #Fails because df csv read casts silently! Should this behave like this?
+    data = "1\n2.0\n1\n3\n"
+    file = StringIO(data)
+    with pytest.raises(ValueError):
+        one_value_per_line_read(file, data_type=np.int32)
+
+
+def create_test_csv_dose(correctedDose=None, removed=None):
+    # Define the target directory and CSV file path
+    current_dir = Path(__file__).parent / "test_data" / "TS_018"
+    file_path = current_dir / "dose_test.csv"
+    """if file_path.exists():
+        #print(f"CSV file already exists at: {file_path}")
+        return file_path"""
+    #current_dir.mkdir(parents=True, exist_ok=True)  # Create the directory if it doesn't exist
+    # Data to be written to the CSV file
+    if removed is None:
+        data = {'CorrectedDose' : correctedDose}
+        columns = ['CorrectedDose']
+    elif correctedDose is None:
+        data = {'Removed' : removed}
+        columns = ['CorrectedDose']
+    else:
+        data = {'CorrectedDose': correctedDose,
+            'Removed': removed}
+        columns = ['CorrectedDose', 'Removed']
+
+    # Create a pandas DataFrame and save it as a CSV file
+    df = pd.DataFrame(data)
+    df.to_csv(
+        file_path,
+        index=True,  # write the index, why it has to be true?
+        float_format="%.1f",  # Format floats with 1 decimal place
+        sep=",",  # Use a comma as the delimiter
+        header=True, # Write the header row
+        #columns=columns
+    )
+    return file_path
+#Not found file thrown, to check exception?
+#MDOC to write
+def test_total_dose_load():
+    #Input is ndarray, should be equal to return
+    input_ndarray = np.array([1.0, 2.0, 3.0])
+    assert np.array_equal(total_dose_load(input_ndarray), input_ndarray)
+
+    #xml
+    #mdoc
+    #one value per line (txt)
+
+    #csv
+    #Testing removed for 1entry
+    result = total_dose_load(str(create_test_csv_dose([10.0,20.0,30.0,40.0], [False,False,True,False])))
+    expected_result = np.array([10.0, 20.0, 40.0], dtype=np.float32)
+    np.testing.assert_array_equal(result, expected_result)
+    #Testing no removed column
+    result = total_dose_load(str(create_test_csv_dose([10.0,20.0,30.0,40.0], None)))
+    expected_result= np.array([10.0, 20.0, 30.0, 40.0], dtype=np.float32)
+    np.testing.assert_array_equal(result, expected_result)
+    #Testing exception raise
+    #No correctedDose column
+    with pytest.raises(ValueError):
+        result = total_dose_load(str(create_test_csv_dose(None, [False,False,False,False])))
+
+    #paths4files
+    current_dir = Path(__file__).parent
+    mdoc018_path = str(current_dir / "test_data" / "TS_018" / "018.mdoc")
+    xml018_path = str(current_dir / "test_data" / "TS_018" / "018.xml")
+    txt018_path = str(current_dir / "test_data" / "TS_018" / "018_corrected_dose.txt")
+
+    # Mdoc
+    #result = total_dose_load(mdoc018_path, False)
+    #to continue
+
+    #xml
+    doseXml = np.array([134.3059, 132.0675, 127.5906, 125.3522, 118.6369, 116.3985,
+                     109.6832, 107.4447, 100.7294, 98.49098, 91.77568, 89.53725,
+                     82.82195, 80.58351, 73.86821, 71.62978, 64.91447, 62.67604,
+                     55.96075, 53.72232, 47.00703, 44.7686, 38.05331, 35.81488,
+                     29.09959, 26.86116, 20.14587, 17.90744, 11.19215, 8.95372,
+                     2.23843, 4.47686, 6.71529, 13.43058, 15.66901, 22.3843,
+                     24.62273, 31.33802, 33.57645, 40.29174, 42.53017, 49.24546,
+                     51.48389, 58.19918, 60.43761, 67.15291, 69.39134, 76.10664,
+                     78.34508, 85.06038, 87.29881, 94.01411, 96.25255, 102.9678,
+                     105.2063, 111.9216, 114.16, 120.8753, 123.1138, 129.8291])
+    np.testing.assert_array_equal(doseXml, total_dose_load(xml018_path))
+
+    #onevalueperlineFile
+    dosetxt = np.array([136.62, 134.38, 127.66, 125.42, 118.71, 116.47, 109.76, 107.52, 100.8, 98.564, 91.848, 89.61, 82.895, 80.656, 73.941, 71.703, 64.987, 62.749, 56.034, 53.795, 47.08, 44.841, 38.126, 35.888, 29.172, 26.934, 20.219, 17.98, 11.265, 9.0266, 2.3113, 4.5497, 6.7881, 13.503, 15.742, 22.457, 24.696, 31.411, 33.649, 40.365, 42.603, 49.318, 51.557, 58.272, 60.51, 67.226, 69.464, 76.179, 78.418, 85.133, 87.372, 94.087, 96.325, 103.04, 105.28, 111.99, 114.23, 120.95, 123.19, 129.9],
+                       dtype=np.float32)
+    np.testing.assert_array_equal(dosetxt, total_dose_load(txt018_path))
+
+    #not a valid path, not nd array
+    with pytest.raises(Exception):
+        result = total_dose_load(str("randomString"))
+
+def create_test_csv_angles(angles, order):
+    current_dir = Path(__file__).parent / "test_data" / "TS_018"
+    file_path = current_dir / "angles_test.csv"
+    if order == "zzx": #reversed
+        data = {'phi': angles[0], 'psi':angles[2], 'theta':angles[1]}
+    elif order == "zxz": #standard
+        data = {'phi': angles[0], 'theta':angles[1], 'psi':angles[2]}
+    elif order == "exception":
+        data = {'phi': angles[0], 'theta':angles[1]}
+    df = pd.DataFrame(data)
+    df.to_csv(
+        file_path,
+        index=False,  # write the index, why it has to be true?
+        float_format="%.1f",  # Format floats with 1 decimal place
+        sep=",",  # Use a comma as the delimiter
+        header=False,  # Write the header row
+        # columns=columns
+    )
+    return file_path
+def test_rot_angles_load():
+    #4 x 3 (N x (phi,theta,psi))
+    angles_phi_theta_psi = np.array([[1,4,30,45],[2,5,60,45],[3,6,90,120]])
+
+    # N lines: 4 arrays
+    result_phi_theta_psi = np.array([[1,2,3],[4,5,6],[30,60,90],[45,45,120]])
+    result_phi_psi_theta = np.array([[1,3,2],[4,6,5],[30,90,60],[45,120,45]])
+
+
+    #Passing nparray: result is equal to input
+    # zxz or zzx doesn't matter when passing a numpy array
+    np.testing.assert_array_equal(angles_phi_theta_psi, rot_angles_load(angles_phi_theta_psi))
+
+    #testing csv path
+    #he lines in csv:
+        # phi, theta, psi
+        # phi1, theta1, psi1
+    np.testing.assert_array_equal(rot_angles_load(str(create_test_csv_angles(angles_phi_theta_psi, "zxz")), "zxz"), result_phi_theta_psi)
+    #the lines in csv:
+        #phi, psi, theta
+        #phi, psi1, theta1
+    np.testing.assert_array_equal(rot_angles_load(str(create_test_csv_angles(angles_phi_theta_psi, "zzx")), "zzx"), result_phi_psi_theta)
+
+    #Testing exception being raised if not valid path is being passed
+    with pytest.raises(ValueError):
+        rot_angles_load("random")
+
+    #Testing exception being raised if passed csv doesn't contain 3 columns (phi,theta,psi)
+    with pytest.raises(ValueError):
+        result = rot_angles_load((str(create_test_csv_angles(angles_phi_theta_psi, "exception")), "zxz"))
+
+#last value error exception? how to throw this exception?
+def test_tlt_load():
+    current_dir = Path(__file__).parent / "test_data" / "TS_018"
+    angles = [-54, -50, -48, -46, -44, -42, -40, -38, -36, -34, -32, -30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 69
+                     ]
+    #Passing np should return np as is
+    np.testing.assert_equal(np.array(angles), tlt_load(np.array(angles)))
+
+    #Passing list should return np array of list
+    np.testing.assert_equal(np.array(angles), tlt_load(angles))
+
+    #Test mdoc
+    file_path = current_dir / "018.mdoc"
+    angles_mdoc018 = [
+        -52.0064, -50.0066, -48.0064, -46.0066, -44.0058, -42.0051, -40.0053, -38.0066, -36.0048, -34.0061, -32.0043,
+        -30.0041, -28.0043, -26.0045, -24.0058, -22.005, -20.0043, -18.004, -16.0063, -14.005, -12.0068, -10.007,
+        -8.01075, -6.0075, -4.00624, -2.00799, -0.0112337, 1.99052, 3.98928, 5.99103, 7.97729, 9.98604, 11.9893,
+        13.9901, 15.9863, 17.9886, 19.9878, 21.9911, 23.9898, 25.9861, 27.9918, 29.9871, 31.9868, 33.9896, 35.9839,
+        37.9831, 39.9829, 41.9841, 43.9854, 45.9826, 47.9899, 49.9886, 51.9879, 53.9827, 55.9889, 57.9837, 59.9894,
+        61.9822, 63.9869, 65.9732
+    ]
+    angles_mdoc018 = np.array(angles_mdoc018)
+    #sort=False
+    np.testing.assert_equal(angles_mdoc018, tlt_load(str(file_path), False))
+    #sort=True
+    angles_mdoc018_notSortedByDefault = np.copy(angles_mdoc018)
+    np.random.shuffle(angles_mdoc018_notSortedByDefault)
+    np.testing.assert_equal(np.sort(angles_mdoc018_notSortedByDefault), tlt_load(str(file_path), True))
+
+    #Test xml warp
+    angles_xml018 = np.array(angles)
+    file_path = current_dir / "018.xml"
+    np.testing.assert_equal(angles_xml018, tlt_load(str(file_path), False))
+    #sort=True
+    angles_xml018_notSortedByDefault = np.copy(angles_xml018)
+    np.random.shuffle(angles_xml018_notSortedByDefault)
+    np.testing.assert_equal(np.sort(angles_xml018_notSortedByDefault), tlt_load(str(file_path), True))
+
+    #Test onevalueperline file (tlt)
+    angles_tlt = np.array([-54.01, -50.01, -48.01, -46.01, -44.01, -42.01, -40.01, -38.01, -36.00, -34.01, -32.00, -30.00, -28.00, -26.00, -24.01, -22.01, -20.00, -18.00, -16.01, -14.01, -12.01, -10.01, -8.01, -6.01, -4.01, -2.01, -0.01, 1.99, 3.99, 5.99, 7.98, 9.99, 11.99, 13.99, 15.99, 17.99, 19.99, 21.99, 23.99, 25.99, 27.99, 29.99, 31.99, 33.99, 35.98, 37.98, 39.98, 41.98, 43.99, 45.98, 47.99, 49.99, 51.99, 53.98, 55.99, 57.98, 59.99, 61.98, 63.99, 69.97
+
+    ], dtype=np.float32)
+    file_path = current_dir / "018.tlt"
+    angles_tlt_notSortedByDefault = np.copy(angles_tlt)
+    np.random.shuffle(angles_tlt_notSortedByDefault)
+    #sort=False
+    check1 = tlt_load(str(file_path), False)
+    np.testing.assert_equal(angles_tlt, check1)
+    #sort=True
+    np.testing.assert_equal(np.sort(angles_tlt_notSortedByDefault), tlt_load(str(file_path), True))
+
+    #Test raise exceptions
+    file_path = current_dir / "random"
+    with pytest.raises(ValueError):
+        tlt_load(str(file_path)) #not existing file
+
+    with pytest.raises(ValueError):
+        tlt_load(32) #invalid input format
 

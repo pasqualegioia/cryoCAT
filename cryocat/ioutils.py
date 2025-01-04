@@ -454,10 +454,22 @@ def one_value_per_line_read(file_path, data_type=np.float32):
     -------
     numpy.ndarray
         A ndarray with values of the type data_type.
+
+    Raises
+    -------
+    ValueError
+        If file specified from file_path is not readable
     """
 
-    data_df = pd.read_csv(file_path, header=None, dtype=data_type, delim_whitespace=True)
+    try:
+        data_df = pd.read_csv(file_path, header=None, dtype=data_type, delim_whitespace=True)
+        if data_df.empty:
+            raise ValueError("The input file is empty or contains no valid data.")
+    except pd.errors.EmptyDataError:
+        raise ValueError("The input file is empty or contains no valid data.")
+
     return data_df.iloc[:, 0].values
+
 
 
 def total_dose_load(input_dose, sort_mdoc=True):
@@ -469,7 +481,7 @@ def total_dose_load(input_dose, sort_mdoc=True):
         The input dose. If ndarray, it is returned as is. If str, it can be a path to a csv, xml (warp), mdoc
         or a file with one value per line for each tilt image in the tilt series (any extension, typically .txt).
         The values should correspond to the total dose applied to each tilt image (i.e., low values for tilts acquired
-        as first, large values for the tilt images acqured as last). If mdoc file is used the total dose is corrected
+        as first, large values for the tilt images acquired as last). If mdoc file is used the total dose is corrected
         either as PriorRecordDose + ExposureDose for each image, or as ExposureDose * (ZValue + 1) (starting
         from 1). The latter will work only if the ZValue corresponds to the order of acquisition, i.e, for tilt series
         that are not sorted from min to max tilt angle or are sorted with their ZValue unchanged.
@@ -492,6 +504,8 @@ def total_dose_load(input_dose, sort_mdoc=True):
     if isinstance(input_dose, np.ndarray):
         return input_dose
     elif isinstance(input_dose, str):
+        if not os.path.exists(input_dose):
+            raise ValueError(f"File '{input_dose}' does not exist.")
         if input_dose.endswith(".csv"):
             # load as panda frames
             df = pd.read_csv(input_dose, index_col=0)
@@ -501,7 +515,7 @@ def total_dose_load(input_dose, sort_mdoc=True):
                 else:
                     return df["CorrectedDose"].astype(np.single).to_numpy()
             else:
-                ValueError(f"The file {input_dose} does not contain column with name CorrectedDose")
+                raise ValueError(f"The file {input_dose} does not contain column with name CorrectedDose")
         elif input_dose.endswith(".mdoc"):
             # load as mdoc
             mdoc_file = mdoc.Mdoc(input_dose)
@@ -533,7 +547,7 @@ def total_dose_load(input_dose, sort_mdoc=True):
             total_dose = one_value_per_line_read(input_dose)
             return total_dose
     else:
-        ValueError("Error: the dose has to be either ndarray or str with valid path!")
+        raise ValueError("Error: the dose has to be either ndarray or str with valid path!")
 
 
 def rot_angles_load(input_angles, angles_order="zxz"):
@@ -572,13 +586,24 @@ def rot_angles_load(input_angles, angles_order="zxz"):
     """
 
     if isinstance(input_angles, str):
+        #Not all strings are valid: file can not exist
+        if not os.path.exists(input_angles):
+            raise ValueError(f"File '{input_angles}' does not exist.")
+
         angles = pd.read_csv(input_angles, header=None)
+        #Check valid data
+        if len(angles.columns)!=3:
+            raise ValueError(f"File '{input_angles}' does not contain valid data.")
+
         if angles_order == "zzx":
             angles.columns = ["phi", "psi", "theta"]
         else:
+            #also accept different values other than xzx, correct?
             angles.columns = ["phi", "theta", "psi"]
 
-        angles = angles.loc[:, ["phi", "theta", "psi"]].to_numpy()
+        angles = angles.to_numpy()
+        #This istructions makes output always phi,theta,psi ?
+        #angles = angles.loc[:, ["phi", "theta", "psi"]].to_numpy()
 
     elif isinstance(input_angles, np.ndarray):
         angles = input_angles.copy()
@@ -619,6 +644,9 @@ def tlt_load(input_tlt, sort_angles=True):
     elif isinstance(input_tlt, list):
         return np.asarray(input_tlt)
     elif isinstance(input_tlt, str):
+        #File can also not exist.
+        if not os.path.exists(input_tlt):
+            raise ValueError(f"File '{input_tlt}' does not exist.")
         if input_tlt.endswith(".mdoc"):
             tilt_data = mdoc.Mdoc(input_tlt)
             tilts = tilt_data.get_image_feature("TiltAngle").values
