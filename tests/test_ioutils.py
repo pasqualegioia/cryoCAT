@@ -8,6 +8,7 @@ import os
 import re
 from io import StringIO
 from pathlib import Path
+import json
 
 # function to create a temporary file with a specific encoding
 def create_temp_file_with_encoding(content, encoding):
@@ -1823,19 +1824,25 @@ def test_rot_angles_load():
     #he lines in csv:
         # phi, theta, psi
         # phi1, theta1, psi1
-    np.testing.assert_array_equal(rot_angles_load(str(create_test_csv_angles(angles_phi_theta_psi, "zxz")), "zxz"), result_phi_theta_psi)
+    filepath = create_test_csv_angles(angles_phi_theta_psi, "zxz")
+    np.testing.assert_array_equal(rot_angles_load(str(filepath), "zxz"), result_phi_theta_psi)
     #the lines in csv:
         #phi, psi, theta
         #phi, psi1, theta1
-    np.testing.assert_array_equal(rot_angles_load(str(create_test_csv_angles(angles_phi_theta_psi, "zzx")), "zzx"), result_phi_psi_theta)
-
+    filepath = create_test_csv_angles(angles_phi_theta_psi, "zzx")
+    np.testing.assert_array_equal(rot_angles_load(str(filepath), "zzx"), result_phi_psi_theta)
     #Testing exception being raised if not valid path is being passed
     with pytest.raises(ValueError):
         rot_angles_load("random")
 
     #Testing exception being raised if passed csv doesn't contain 3 columns (phi,theta,psi)
     with pytest.raises(ValueError):
-        result = rot_angles_load((str(create_test_csv_angles(angles_phi_theta_psi, "exception")), "zxz"))
+        filepath = create_test_csv_angles(angles_phi_theta_psi, "exception")
+        result = rot_angles_load((str(filepath), "zxz"))
+
+    #Test file cleanup
+    if os.path.exists(filepath):
+        os.remove(filepath)
 
 #last value error exception? how to throw this exception?
 def test_tlt_load():
@@ -1888,6 +1895,8 @@ def test_tlt_load():
     #sort=True
     np.testing.assert_equal(np.sort(angles_tlt_notSortedByDefault), tlt_load(str(file_path), True))
 
+
+
     #Test raise exceptions
     file_path = current_dir / "random"
     with pytest.raises(ValueError):
@@ -1896,3 +1905,268 @@ def test_tlt_load():
     with pytest.raises(ValueError):
         tlt_load(32) #invalid input format
 
+
+
+
+
+def test_dict_write():
+    current_dir = Path(__file__).parent / "test_data" / "TS_018"
+    file_path = current_dir / "dict_test.json"
+    #example dictionary
+    dictionary1 = {
+        "person1": {
+            "name": "Alice",
+            "age": 30,
+            "skills": ["Python", "Data Analysis"],
+            "is_student": False
+        },
+        "person2": {
+            "name": "Bob",
+            "age": 25,
+            "skills": ["JavaScript", "React"],
+            "is_student": True
+        }
+    }
+    try:
+        dict_write(dictionary1, file_path)
+        assert file_path.exists()
+        with open(file_path, "r") as f:
+            loaded_data = json.load(f)
+        assert loaded_data == dictionary1
+    finally: #remove test file
+        if file_path.exists():
+            file_path.unlink()
+
+
+def test_dict_load():
+    dictionary1 = {
+        "person1": {
+            "name": "Alice",
+            "age": 30,
+            "skills": ["Python", "Data Analysis"],
+            "is_student": False
+        },
+        "person2": {
+            "name": "Bob",
+            "age": 25,
+            "skills": ["JavaScript", "React"],
+            "is_student": True
+        }
+    }
+    #Passing dict should return dict as is
+    assert dictionary1 == dict_load(dictionary1)
+    #Passing json string should return dictionary
+    assert dictionary1 == dict_load(json.dumps(dictionary1))
+    #Testing exception being raised
+    with pytest.raises(ValueError):
+        invalid_input = 12345
+        result = dict_load(invalid_input)
+"""
+What is the intended behaviour? We are passing to the function an array-like of ints, pointing numbers of lines to be removed;
+we are passing an array-like of strings, so that all lines that start with these strings are removed or are kept?
+What's the point of "ignoring" lines starting with some strings and then passing array-like of numbers of lines to be removed?
+
+We make those lines that start with some strings be ignored, and we pass a list of 
+integers that are numbers of lines; so if we ignore those lines indexes are going to be "shifted", is this the intended
+behaviour? If so then it's working.    
+"""
+
+def test_remove_lines():
+    # Create a temporary file for testing
+    test_file = Path(__file__).parent / "test_data" / "TS_018"/ "remove_lines_test.txt"
+    # Sample content to write to the file
+    content = """Line 1
+Line 2
+Line 3
+Line 2
+Line 4
+Test 1
+Line 5
+"""
+
+    # Write the sample content to the file
+    with open(test_file, "w") as f:
+        f.write(content)
+    # Test case 1: Remove specific lines (by number)
+    lines_to_remove = [1, 3]  # We want to remove lines 2 and 4 (remember line numbers are 0-indexed)
+    result = remove_lines(str(test_file), lines_to_remove, number_start=0)
+    # Check the result
+    assert result == ["Line 1\n", "Line 3\n", "Line 4\n", "Test 1\n", "Line 5\n"]
+
+    with open(test_file, "w") as f:
+        f.write(content)
+    # Test case 2: Skip lines starting with a certain string
+    lines_to_remove = [1, 3]  # We want to remove lines 1 and 3
+    start_str_to_skip = "Line 2"  # Skip lines starting with "Line 2"
+    result = remove_lines(str(test_file), lines_to_remove, start_str_to_skip=start_str_to_skip, number_start=0)
+
+    # Check the result
+    assert result == ["Line 1\n", "Line 2\n", "Line 2\n", "Line 4\n", "Line 5\n"]
+
+    with open(test_file, "w") as f:
+        f.write(content)
+    # Test case 3: Check if output file is written
+    output_file = Path(__file__).parent / "test_data" / "TS_018" / "output_file.txt"
+    lines_to_remove = 0  # Remove first line
+    result = remove_lines(str(test_file), lines_to_remove, number_start=0, output_file=str(output_file))
+    # Verify if the output file was created
+    assert output_file.exists()
+    # Read the content of the output file
+    with open(output_file, "r") as f:
+        output_content = f.readlines()
+    # Check if the output content is as expected
+    assert output_content == ["Line 2\n", "Line 3\n", "Line 2\n", "Line 4\n", "Test 1\n", "Line 5\n"]
+    # Clean up the created files
+    output_file.unlink()
+    test_file.unlink()
+
+    if os.path.exists(test_file):
+        os.remove(test_file)
+
+#Function is not handling incorrect formatted files
+def test_imod_com_read():
+    test_file = Path(__file__).parent / "test_data" / "TS_018" / "tilt.com"
+    tilt018_com_expected = {
+    "InputProjections": ["018.ali"],
+    "OutputFile": ["018.rec"],
+    "IMAGEBINNED": [1],
+    "TILTFILE": ["018.tlt"],
+    "THICKNESS": [1800],
+    "RADIAL": [0.35, 0.035],
+    "FalloffIsTrueSigma": [1],
+    "XAXISTILT": [0.0],
+    "LOG": [0.0],
+    "SCALE": [0.0, 250.0],
+    "PERPENDICULAR": [],
+    "Mode": [2],
+    "FULLIMAGE": [4096, 4096],
+    "SUBSETSTART": [0, 0],
+    "AdjustOrigin": [],
+    "OFFSET": [0.0],
+    "SHIFT": [0.0, 100.0]
+    }
+    assert tilt018_com_expected == imod_com_read(str(test_file))
+
+#reading csv file, tomo_id must be float?
+@pytest.fixture
+def csv_file():
+    # Create a temporary file with CSV content
+    csv_data = "1 100.0\n2 200.0\n"
+    with tempfile.NamedTemporaryFile(delete=False, mode='w', newline='', suffix=".txt") as temp_file:
+        temp_file.write(csv_data)
+        temp_file_path = temp_file.name
+    yield temp_file_path
+    # Cleanup after test
+    os.remove(temp_file_path)
+def test_z_shift_load(csv_file):
+    #case 1: Input is a single number
+    result = z_shift_load(100)
+    expected_result = pd.DataFrame({"z_shift": [100]})
+    pd.testing.assert_frame_equal(result, expected_result)
+
+    #case 2: Input a .com file
+    test_file = Path(__file__).parent / "test_data" / "TS_018" / "tilt.com"
+    result = z_shift_load(str(test_file))
+    expected_result = pd.DataFrame({"z_shift": [100.0]})
+    pd.testing.assert_frame_equal(result, expected_result)
+
+    #case3: input is a pd with two columns
+    df_input = pd.DataFrame({"tomo_id": [1, 2], "z_shift": [50.0, 75.0]})
+    result = z_shift_load(df_input)
+    pd.testing.assert_frame_equal(result, df_input)
+
+    #case4: pd with more than 2 columns:
+    df_input = pd.DataFrame({"tomo_id": [1,2], "z_shift":[50.0,55.0], "error":["not","valid"]})
+    with pytest.raises(ValueError):
+        result = z_shift_load(df_input)
+
+    #case5: input is not an int, not a float, not a pd, but a list with two columns
+    input_shift = [[1, 50.0], [2, 75.0]]
+    expected_result = pd.DataFrame({"tomo_id": [1, 2], "z_shift": [50.0, 75.0]})
+    pd.testing.assert_frame_equal(z_shift_load(input_shift), expected_result)
+    #We correctly get two columns (tomo_id, s_shift) pd dataframe
+
+    #case6: input is a string but the file doesn't exist
+    input_shift = "exit"
+    with pytest.raises(ValueError):
+        z_shift_load(input_shift)
+    #case7: input is not a com file but a valid file
+    result = z_shift_load(csv_file)
+    expected_result = pd.DataFrame({
+        "tomo_id": [1.0, 2.0],
+        "z_shift": [100.0, 200.0]
+    })
+    pd.testing.assert_frame_equal(result, expected_result)
+
+@pytest.fixture
+def csv_file2():
+    # Create a temporary file with CSV content
+    csv_data = "24.0 33.0 -2.3"
+    with tempfile.NamedTemporaryFile(delete=False, mode='w', newline='', suffix=".txt") as temp_file:
+        temp_file.write(csv_data)
+        temp_file_path = temp_file.name
+    yield temp_file_path
+    # Cleanup after test
+    os.remove(temp_file_path)
+#If passing a pd df, it's not creating a new pd dataframe but modifying the input one, intended behaviour?
+#If using tomo_idx, tomo_idx column is added as last while others have it as first
+#Mostly inputs only allow 1x3 dimensions
+def test_dimensions_load(csv_file2):
+    #pd as input 1x3
+    pd_input = pd.DataFrame([[1,2,3]], columns=["a", "b", "c"])
+    #print(pd_input.columns)
+    result = dimensions_load(pd_input) #dimensions_load is already modifying input dataframe
+    #print(pd_input.columns)
+    #pd_input_test_fail = pd.DataFrame([[1,2,3]], columns=["a", "b", "c"])
+    #pd.testing.assert_frame_equal(result, pd_input_test_fail)
+    pd_input_test = pd.DataFrame([[1,2,3]], columns=["x", "y", "z"])
+    pd.testing.assert_frame_equal(result, pd_input_test)
+
+    #pd as input Nx4 (3x4)
+    pd_input1 = pd.DataFrame([[0,1,2,3],[1,1.1,2.1,3.1],[2,1.2,2.2,3.2]])
+    pd_input_test1 = pd.DataFrame([[0,1,2,3],[1,1.1,2.1,3.1],[2,1.2,2.2,3.2]], columns=["tomo_id", "x", "y", "z"])
+    result1 = dimensions_load(pd_input1)
+    pd.testing.assert_frame_equal(result1, pd_input_test1)
+
+    #pd to raise exception (5 columns) shape error
+    pd_input2 = pd.DataFrame([[0,1,2,3,4],[1,1,1,1,1]])
+    with pytest.raises(ValueError):
+        result2 = dimensions_load(pd_input2)
+
+    #com file as input (pathfile)
+    test_file = Path(__file__).parent / "test_data" / "TS_018" / "tilt.com"
+    expected_result = pd.DataFrame([[4096, 4096, 1800]], columns=["x","y","z"], dtype=np.float64)
+    result3 = dimensions_load(str(test_file))
+    pd.testing.assert_frame_equal(result3, expected_result)
+
+    #com file with tomo_idx!= null
+    #tomo_idx basically works like this: we repeat x,y,z for all tomo_ids in tomo_idx! always same values!
+
+    angles_mdoc018_test2values = [
+        -52.0064, -50.0066
+    ]
+    expected_result = pd.DataFrame([[1,2,3,-52], [1,2,3,-50]], columns=["x", "y", "z", "tomo_id"])
+    pd_input4 = pd.DataFrame([[1,2,3]], columns=["x","y","z"])
+    result4 = dimensions_load(pd_input4,angles_mdoc018_test2values)
+    pd.testing.assert_frame_equal(result4,expected_result)
+
+    #string, not .com file, but csv
+    expected_result = pd.DataFrame([[24.0,33.0,-2.3]], columns=["x", "y", "z"])
+    pd.testing.assert_frame_equal(dimensions_load(csv_file2), expected_result)
+
+    #string, not existing file
+    with pytest.raises(ValueError):
+        result = dimensions_load("random_path")
+
+    #test input is list
+    test_list = [1,2,3]
+    test_list_pd = pd.DataFrame([[1,2,3]], columns=["x", "y", "z"])
+    pd.testing.assert_frame_equal(dimensions_load(test_list), test_list_pd)
+    #test input is np array
+    np_test = np.asarray([1,2,3])
+    test_np_pd = pd.DataFrame([[1,2,3]], columns=["x","y","z"])
+    pd.testing.assert_frame_equal(dimensions_load(np_test),test_np_pd)
+    #test input is np array with other dimensions
+    test_np1_pd = pd.DataFrame([[1,2,3,4]], columns=["tomo_id", "x", "y", "z"])
+    np1_test = np.asarray([[1,2,3,4]])
+    pd.testing.assert_frame_equal(dimensions_load(np1_test),test_np1_pd)
