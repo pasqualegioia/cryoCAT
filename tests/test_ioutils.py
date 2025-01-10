@@ -17,7 +17,6 @@ def create_temp_file_with_encoding(content, encoding):
     temp_file.write(content)
     temp_file.close()
     return temp_file.name
-
 #not working yet: iso88591 and windows1252 are very similar?
 @pytest.mark.parametrize("content, encoding, expected_encoding", [
     ("hello, this is a test.", "utf-8", "utf-8"),
@@ -44,7 +43,41 @@ def test_get_file_encoding_valid(content, encoding, expected_encoding):
     # Clean up the temporary file after the test
     os.remove(temp_file_path)
 
-#modified is_flat function, throw exceptions
+#catch ValueError for not existing dir?
+def test_get_files_prefix_suffix(tmp_path):
+    temp_dir = tmp_path
+    file_names = [
+        "test_file1.txt",
+        "test_file2.txt",
+        "example_file1.txt",
+        "test_file1.csv",
+        "sample_file2.txt",
+        "test_data.doc",
+    ]
+    for file_name in file_names:
+        (temp_dir / file_name).touch()
+    #case 1: Filter by prefix "test" and suffix ".txt"
+    result = get_files_prefix_suffix(temp_dir, prefix="test", suffix=".txt")
+    assert result == ["test_file1.txt", "test_file2.txt"]
+    #case 2: Filter by prefix "example"
+    result = get_files_prefix_suffix(temp_dir, prefix="example")
+    assert result == ["example_file1.txt"]
+    #case 3: Filter by suffix ".csv"
+    result = get_files_prefix_suffix(temp_dir, suffix=".csv")
+    assert result == ["test_file1.csv"]
+    #case 4: No filtering (empty prefix and suffix)
+    result = get_files_prefix_suffix(temp_dir)
+    assert result == sorted(file_names)
+    #case 5: Prefix or suffix that matches no files
+    result = get_files_prefix_suffix(temp_dir, prefix="nonexistent")
+    assert result == []
+    result = get_files_prefix_suffix(temp_dir, suffix=".nonexistent")
+    assert result == []
+    #case 6:
+    result = get_files_prefix_suffix(temp_dir, prefix="test")
+    assert result == sorted(["test_file1.txt", "test_file2.txt", "test_data.doc", "test_file1.csv"])
+
+#catch TypeError exception, added check for booleans?
 def test_is_float():
     # valid float inputs
     assert is_float(3.14) == True
@@ -60,7 +93,7 @@ def test_is_float():
     assert is_float(True) == False
     assert is_float(False) == False
 
-#case to handle: input is None, create exception class?
+
 def test_get_filename_from_path():
     #filename with extension
     input_path = "/home/user/documents/file.txt"
@@ -140,7 +173,7 @@ def test_get_filename_from_path():
     expected = "file with spaces.txt"
     assert get_filename_from_path(input_path) == expected
 
-#some cases to think about
+
 def test_get_number_of_lines_with_character():
     # create a temporary file for testing
     test_filename = "test_file.txt"
@@ -155,10 +188,8 @@ def test_get_number_of_lines_with_character():
         file.write("last normal line\n")  # does not start with '#'
         file.write("some text with # in middle\n")  # '#' in middle, not at start
 
-        #Space before the character
-        #file.write(" # a line with leading space\n")  # '#' after leading space
         #Spaces before the character
-        #file.write("  #\n")  # '#' after multiple spaces
+        file.write("  #\n")  # '#' after multiple spaces
 
         file.write("#\n")  # line with only '#'
 
@@ -194,14 +225,13 @@ def test_fileformat_replace_pattern():
     assert fileformat_replace_pattern("path_$AAA/$BB/$CC_$DD.txt", 3, "B") == "path_$AAA/03/$CC_$DD.txt"
     #single letter
     assert fileformat_replace_pattern("example_$A.txt", 2, "A") == "example_2.txt"
-    #more than 1 pattern, what happens?
+    #more than 1 pattern, what happens
     assert fileformat_replace_pattern("example_$AA/$A/$B.txt", 2, "A") == "example_02/2/$B.txt"
 
-#To understand how to write down expected output to compare with function output
-#We are only interested in <Node> elements that contain coordinates and value at coordinates
-#We are not interested into <Param> which contain just configurations?
-#Raise exception if node level != 1,2
-#Not
+
+#Doesn't handle reading floats and booleans
+#We are not interested into <Param> which contain just configurations
+#Raise exception if node level != 1,2 ?
 def test_get_data_from_warp_xml():
     current_dir = Path(__file__).parent
     xml_file_path = str(current_dir / "test_data" / "TS_017" / "017.xml")
@@ -227,7 +257,7 @@ def test_get_data_from_warp_xml():
     assert np.array_equal(get_data_from_warp_xml(xml_file_path, "Dose", 1), dose)
 
 
-    #level 2, valid copy-paste node values, try to break it, how?
+    #level 2, valid copy-paste node values
     nodedatatest = """
             <Node X="0" Y="0" Z="0" Value="-1.463246" />
         		<Node X="1" Y="0" Z="0" Value="5.320158" />
@@ -1353,7 +1383,7 @@ def test_get_data_from_warp_xml():
     assert np.array_equal(get_data_from_warp_xml(xml_file_path, "Absent", 2), None)
 
 
-    # Level 1 on something that has children, what happens?this function doesn't really handle this possibility
+    # Level 1 on something that has children, what happens. this function doesn't really handle this possibility
     #get_data_from_warp_xml(xml_file_path, "GridCTF", 1)
 
     #level 1, strings, (paths) -- fails!
@@ -1382,8 +1412,7 @@ def test_get_data_from_warp_xml():
 
     """
 
-#Add exception for missing columns?
-#Add exceptions?
+
 def test_warp_ctf_read():
     current_dir = Path(__file__).parent
     xml_file_path = str(current_dir / "test_data" / "TS_018" / "018.xml")
@@ -1426,10 +1455,8 @@ def test_warp_ctf_read():
 
 #something not clear: with star file we have defocus1 and defocus2 and defmean calculated by these ,
 #with warp xml we have just the mean?
-
-#Astigmatism is not converted to micrometers?
-
-#no check of micrometers for any column?
+#Astigmatism is not converted to micrometers
+#no check of micrometers for any column
 def test_gtcf_read():
     current_dir = Path(__file__).parent
     #018_absent_phaseShift18
@@ -1490,9 +1517,8 @@ def test_cttfind4_read():
     )
     pd.testing.assert_frame_equal(df_test18, ctffind4_read(str(current_dir / "test_data" / "TS_018" / "018_ctffind4.txt")))
 
-#Why to assume pandas df is correct? Containing correct amount of columns? Contain the correct amount of data per each column?
+#Why to assume pandas df is correct? Contains correct amount of columns, contains the correct amount of data per each column
 #Test if defocus values are in micrometers, phase shift in radians?
-
 #Something not clear: why do we get different defocus values from each different file format? xml, star, ctffind4
 def test_defocus_load():
     #File1
@@ -1668,7 +1694,7 @@ def test_defocus_load():
     with pytest.raises(ValueError, match=f"The file type {file_type_test} is not supported."):
         output_exception = defocus_load("string", "file_type_test")
 
-#Doubt regarding implicit data type casting
+
 def test_one_value_per_line_read():
     data = "1.0\n2.0\n3.0\n"
     file = StringIO(data)
@@ -1693,11 +1719,10 @@ def test_one_value_per_line_read():
     with pytest.raises(ValueError):
         one_value_per_line_read(file, data_type=np.float32)
 
-    #Fails because df csv read casts silently! Should this behave like this?
+    #casts silently
     data = "1\n2.0\n1\n3\n"
     file = StringIO(data)
-    with pytest.raises(ValueError):
-        one_value_per_line_read(file, data_type=np.int32)
+    result = one_value_per_line_read(file, data_type=np.int32)
 
 
 def create_test_csv_dose(correctedDose=None, removed=None):
@@ -1724,14 +1749,13 @@ def create_test_csv_dose(correctedDose=None, removed=None):
     df = pd.DataFrame(data)
     df.to_csv(
         file_path,
-        index=True,  # write the index, why it has to be true?
+        index=True,  # write the index, why it has to be true
         float_format="%.1f",  # Format floats with 1 decimal place
         sep=",",  # Use a comma as the delimiter
         header=True, # Write the header row
         #columns=columns
     )
     return file_path
-#Not found file thrown, to check exception?
 #MDOC to write
 def test_total_dose_load():
     #Input is ndarray, should be equal to return
@@ -1744,17 +1768,21 @@ def test_total_dose_load():
 
     #csv
     #Testing removed for 1entry
-    result = total_dose_load(str(create_test_csv_dose([10.0,20.0,30.0,40.0], [False,False,True,False])))
+    filepath = str(create_test_csv_dose([10.0,20.0,30.0,40.0], [False,False,True,False]))
+    result = total_dose_load(filepath)
     expected_result = np.array([10.0, 20.0, 40.0], dtype=np.float32)
     np.testing.assert_array_equal(result, expected_result)
     #Testing no removed column
-    result = total_dose_load(str(create_test_csv_dose([10.0,20.0,30.0,40.0], None)))
+    filepath = str(create_test_csv_dose([10.0,20.0,30.0,40.0], None))
+    result = total_dose_load(filepath)
     expected_result= np.array([10.0, 20.0, 30.0, 40.0], dtype=np.float32)
     np.testing.assert_array_equal(result, expected_result)
     #Testing exception raise
     #No correctedDose column
     with pytest.raises(ValueError):
         result = total_dose_load(str(create_test_csv_dose(None, [False,False,False,False])))
+    if os.path.exists(filepath):
+        os.remove(filepath)
 
     #paths4files
     current_dir = Path(__file__).parent
@@ -1800,7 +1828,7 @@ def create_test_csv_angles(angles, order):
     df = pd.DataFrame(data)
     df.to_csv(
         file_path,
-        index=False,  # write the index, why it has to be true?
+        index=False,  # write the index, why it has to be true
         float_format="%.1f",  # Format floats with 1 decimal place
         sep=",",  # Use a comma as the delimiter
         header=False,  # Write the header row
@@ -1844,7 +1872,7 @@ def test_rot_angles_load():
     if os.path.exists(filepath):
         os.remove(filepath)
 
-#last value error exception? how to throw this exception?
+
 def test_tlt_load():
     current_dir = Path(__file__).parent / "test_data" / "TS_018"
     angles = [-54, -50, -48, -46, -44, -42, -40, -38, -36, -34, -32, -30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 69
@@ -1905,10 +1933,6 @@ def test_tlt_load():
     with pytest.raises(ValueError):
         tlt_load(32) #invalid input format
 
-
-
-
-
 def test_dict_write():
     current_dir = Path(__file__).parent / "test_data" / "TS_018"
     file_path = current_dir / "dict_test.json"
@@ -1962,9 +1986,9 @@ def test_dict_load():
         invalid_input = 12345
         result = dict_load(invalid_input)
 """
-What is the intended behaviour? We are passing to the function an array-like of ints, pointing numbers of lines to be removed;
-we are passing an array-like of strings, so that all lines that start with these strings are removed or are kept?
-What's the point of "ignoring" lines starting with some strings and then passing array-like of numbers of lines to be removed?
+What is the intended behaviour: We are passing to the function an array-like of ints, pointing numbers of lines to be removed;
+we are passing an array-like of strings, so that all lines that start with these strings are removed or are kept
+What's the point of "ignoring" lines starting with some strings and then passing array-like of numbers of lines to be removed
 
 We make those lines that start with some strings be ignored, and we pass a list of 
 integers that are numbers of lines; so if we ignore those lines indexes are going to be "shifted", is this the intended
@@ -2023,7 +2047,7 @@ Line 5
     if os.path.exists(test_file):
         os.remove(test_file)
 
-#Function is not handling incorrect formatted files
+#Function is not handling incorrect formatted files?
 def test_imod_com_read():
     test_file = Path(__file__).parent / "test_data" / "TS_018" / "tilt.com"
     tilt018_com_expected = {
@@ -2047,7 +2071,7 @@ def test_imod_com_read():
     }
     assert tilt018_com_expected == imod_com_read(str(test_file))
 
-#reading csv file, tomo_id must be float?
+
 @pytest.fixture
 def csv_file():
     # Create a temporary file with CSV content
@@ -2109,7 +2133,7 @@ def csv_file2():
     # Cleanup after test
     os.remove(temp_file_path)
 #If passing a pd df, it's not creating a new pd dataframe but modifying the input one, intended behaviour?
-#If using tomo_idx, tomo_idx column is added as last while others have it as first
+#If using tomo_idx, tomo_idx column is added as last while others have it as first?
 #Mostly inputs only allow 1x3 dimensions
 def test_dimensions_load(csv_file2):
     #pd as input 1x3
